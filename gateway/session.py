@@ -807,14 +807,15 @@ class SessionStore:
         to avoid resetting long-idle sessions that are harmless to resume.
         Returns the number of sessions that were suspended.
         """
-        import time as _time
-
-        cutoff = _time.time() - max_age_seconds
+        cutoff = _now() - timedelta(seconds=max_age_seconds)
         count = 0
         with self._lock:
             self._ensure_loaded_locked()
             for entry in self._entries.values():
-                if not entry.suspended and entry.updated_at >= cutoff:
+                updated_at = entry.updated_at
+                if updated_at is None:
+                    continue
+                if not entry.suspended and updated_at >= cutoff:
                     entry.suspended = True
                     count += 1
             if count:
