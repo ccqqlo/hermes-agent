@@ -175,6 +175,52 @@ class TestSendMessageTool:
         )
         mirror_mock.assert_called_once_with("telegram", "-1001", "hello", source_label="cli", thread_id="99999")
 
+    def test_loads_home_channel_from_env_for_direct_tool_use(self):
+        telegram_cfg = SimpleNamespace(enabled=True, token="***", extra={})
+        home = SimpleNamespace(chat_id="8360257800", name="Milo Telegram DM")
+        config = SimpleNamespace(
+            platforms={Platform.TELEGRAM: telegram_cfg},
+            get_home_channel=lambda _platform: home,
+        )
+
+        with patch.dict(
+            os.environ,
+            {
+                "HERMES_HOME": "/tmp/hermes-home",
+                "TELEGRAM_BOT_TOKEN": "***",
+                "TELEGRAM_HOME_CHANNEL": "8360257800",
+                "TELEGRAM_HOME_CHANNEL_NAME": "Milo Telegram DM",
+            },
+            clear=False,
+        ), \
+             patch("tools.send_message_tool.load_hermes_dotenv") as load_env_mock, \
+             patch("gateway.config.load_gateway_config", return_value=config), \
+             patch("tools.interrupt.is_interrupted", return_value=False), \
+             patch("model_tools._run_async", side_effect=_run_async_immediately), \
+             patch("tools.send_message_tool._send_to_platform", new=AsyncMock(return_value={"success": True})) as send_mock, \
+             patch("gateway.mirror.mirror_to_session", return_value=True):
+            result = json.loads(
+                send_message_tool(
+                    {
+                        "action": "send",
+                        "target": "telegram",
+                        "message": "hello",
+                    }
+                )
+            )
+
+        assert result["success"] is True
+        assert result["note"] == "Sent to telegram home channel (chat_id: 8360257800)"
+        load_env_mock.assert_called_once()
+        send_mock.assert_awaited_once_with(
+            Platform.TELEGRAM,
+            telegram_cfg,
+            "8360257800",
+            "hello",
+            thread_id=None,
+            media_files=[],
+        )
+
     def test_sends_to_explicit_telegram_topic_target(self):
         config, telegram_cfg = _make_config()
 

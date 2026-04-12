@@ -11,8 +11,15 @@ import os
 import re
 import ssl
 import time
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
 
 from agent.redact import redact_sensitive_text
+from hermes_cli.env_loader import load_hermes_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +106,18 @@ def _handle_list():
         return json.dumps(_error(f"Failed to load channel directory: {e}"))
 
 
+def _load_hermes_env_for_send_message() -> None:
+    """Best-effort load ~/.hermes/.env so direct tool use sees messaging creds."""
+    hermes_home = os.getenv("HERMES_HOME", "").strip() or str(Path.home() / ".hermes")
+    project_env = Path(__file__).resolve().parents[1] / ".env"
+    if load_dotenv is None:
+        return
+    load_hermes_dotenv(hermes_home=hermes_home, project_env=project_env)
+
+
 def _handle_send(args):
     """Send a message to a platform target."""
+    _load_hermes_env_for_send_message()
     target = args.get("target", "")
     message = args.get("message", "")
     if not target or not message:
