@@ -1763,10 +1763,17 @@ class AIAgent:
 
             aux_base_url = str(getattr(client, "base_url", ""))
             aux_api_key = str(getattr(client, "api_key", ""))
+            from agent.model_metadata import get_model_context_length
+            
+            # Extract configured context length for the auxiliary model
+            aux_config = get_config("auxiliary.compression", default={})
+            aux_config_context_length = aux_config.get("context_length")
+            
             aux_context = get_model_context_length(
                 aux_model,
                 base_url=aux_base_url,
                 api_key=aux_api_key,
+                config_context_length=aux_config_context_length,
             )
 
             threshold = self.context_compressor.threshold_tokens
